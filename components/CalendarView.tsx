@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { calendarData } from '../data/calendarData';
+import { CalendarSection } from '../types';
 
 const renderItemWithDates = (itemText: string) => {
   // Regex to find dates (YYYY-MM-DD), date ranges (YYYY-MM-DD..YYYY-MM-DD), 
@@ -22,7 +21,7 @@ const renderItemWithDates = (itemText: string) => {
 };
 
 
-export const CalendarView: React.FC = () => {
+export const CalendarView: React.FC<{ calendarData: CalendarSection[] }> = ({ calendarData }) => {
   return (
     <div>
       <header className="mb-8">

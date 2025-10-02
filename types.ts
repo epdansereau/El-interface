@@ -2,7 +2,10 @@ import type { ElementType } from 'react';
 
 export type ViewType = 'home' | 'diary' | 'secret_diary' | 'griffes' | 'calendar' | 'world_state' | 'chat' | 'live_chat';
 
-export type ChatModel = 'gemini-2.5-pro' | 'gemini-2.5-flash';
+// Do not remove 'gemini-2.5-pro', it is the latest model and the user wants it.
+export type ChatModel = 'gemini-2.5-flash' | 'gemini-2.5-pro';
+
+export type EditableFile = 'diary.txt' | 'secretDiary.txt' | 'griffes.txt' | 'calendar.txt' | 'worldState.txt';
 
 export interface NavItem {
   id: ViewType;
@@ -28,6 +31,12 @@ export interface CalendarSection {
     title: string;
     items: string[];
 }
+
+export interface WorldStateSection {
+    title: string;
+    content: string;
+}
+
 
 export interface Source {
     uri: string;

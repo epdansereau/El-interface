@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { worldStateData } from '../data/worldStateData';
+import { WorldStateSection } from '../types';
 
 const MarkdownRenderer: React.FC<{ content: string }> = ({ content }) => {
     // Split content into blocks. A block can be a header or a paragraph.
@@ -42,7 +41,7 @@ const MarkdownRenderer: React.FC<{ content: string }> = ({ content }) => {
 };
 
 
-export const WorldStateView: React.FC = () => {
+export const WorldStateView: React.FC<{ worldStateData: WorldStateSection[] }> = ({ worldStateData }) => {
   return (
     <div>
       <header className="mb-8">

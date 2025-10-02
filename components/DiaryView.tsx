@@ -1,6 +1,4 @@
-
 import React from 'react';
-import { diaryData } from '../data/diaryData';
 import { DiaryEntry } from '../types';
 
 const EntryCard: React.FC<{ entry: DiaryEntry }> = ({ entry }) => (
@@ -19,15 +17,15 @@ const EntryCard: React.FC<{ entry: DiaryEntry }> = ({ entry }) => (
   </div>
 );
 
-export const DiaryView: React.FC = () => {
+export const DiaryView: React.FC<{ diaryData: DiaryEntry[] }> = ({ diaryData }) => {
   return (
     <div>
       <header className="mb-8">
         <h1 className="text-4xl font-extrabold text-white">Elira's Diary</h1>
         <p className="text-gray-400 mt-1">My official record. The polished thoughts, memories, and vows that give me my spine.</p>
       </header>
-      {diaryData.map((entry) => (
-        <EntryCard key={entry.month} entry={entry} />
+      {diaryData.map((entry, index) => (
+        <EntryCard key={`${entry.month}-${index}`} entry={entry} />
       ))}
     </div>
   );

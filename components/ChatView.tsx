@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { ChatConversation, ChatMessage, ChatModel, Source } from '../types';
+import { ChatConversation, ChatMessage, Source, ChatModel } from '../types';
 import { Globe, SendIcon, UserIcon } from './Icons';
 import { ChatHistorySidebar } from './ChatHistorySidebar';
 
@@ -12,9 +13,9 @@ interface ChatViewProps {
     onSendMessage: (message: string, useWebSearch: boolean) => Promise<void>;
     isLoading: boolean;
     error: string | null;
+    onImportConversations: (conversations: ChatConversation[]) => void;
     chatModel: ChatModel;
     onSetChatModel: (model: ChatModel) => void;
-    onImportConversations: (conversations: ChatConversation[]) => void;
 }
 
 const MessageSources: React.FC<{ sources: Source[] }> = ({ sources }) => (
@@ -76,9 +77,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
     onSendMessage,
     isLoading,
     error,
+    onImportConversations,
     chatModel,
     onSetChatModel,
-    onImportConversations,
 }) => {
     const [input, setInput] = useState('');
     const [useWebSearch, setUseWebSearch] = useState(true);
@@ -117,9 +118,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 onNewChat={onNewChat}
                 onDeleteConversation={onDeleteConversation}
                 isLoading={isLoading}
+                onImportConversations={onImportConversations}
                 chatModel={chatModel}
                 onSetChatModel={onSetChatModel}
-                onImportConversations={onImportConversations}
             />
             <div className="flex flex-col flex-1 h-full min-w-0">
                  <header className="mb-4 flex-shrink-0 md:hidden">

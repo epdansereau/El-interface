@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { ChatConversation, ChatModel } from '../types';
+import { ChatModel, ChatConversation } from '../types';
 import { TrashIcon, UploadIcon, DownloadIcon } from './Icons';
 
 interface ChatHistorySidebarProps {
@@ -9,9 +9,9 @@ interface ChatHistorySidebarProps {
     onNewChat: () => void;
     onDeleteConversation: (id: string) => void;
     isLoading: boolean;
+    onImportConversations: (conversations: ChatConversation[]) => void;
     chatModel: ChatModel;
     onSetChatModel: (model: ChatModel) => void;
-    onImportConversations: (conversations: ChatConversation[]) => void;
 }
 
 export const ChatHistorySidebar: React.FC<ChatHistorySidebarProps> = ({
@@ -21,9 +21,9 @@ export const ChatHistorySidebar: React.FC<ChatHistorySidebarProps> = ({
     onNewChat,
     onDeleteConversation,
     isLoading,
+    onImportConversations,
     chatModel,
     onSetChatModel,
-    onImportConversations,
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -69,6 +69,11 @@ export const ChatHistorySidebar: React.FC<ChatHistorySidebarProps> = ({
             event.target.value = '';
         }
     };
+    
+    const models: { id: ChatModel, name: string, disabled?: boolean, tooltip?: string }[] = [
+        { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
+        { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' }
+    ];
 
     return (
         <aside className="w-full md:w-64 bg-gray-900 bg-opacity-50 border-b md:border-b-0 md:border-r border-gray-800 p-4 flex flex-col flex-shrink-0">
@@ -109,7 +114,22 @@ export const ChatHistorySidebar: React.FC<ChatHistorySidebarProps> = ({
                     ))}
                 </ul>
             </div>
-             <div className="mt-4 pt-4 border-t border-gray-800 space-y-2">
+             <div className="mt-auto pt-4 border-t border-gray-800 space-y-2">
+                 <div className="space-y-1">
+                    <label htmlFor="model-select" className="text-xs text-gray-400 font-semibold px-1">MODEL</label>
+                    <select
+                        id="model-select"
+                        value={chatModel}
+                        onChange={(e) => onSetChatModel(e.target.value as ChatModel)}
+                        className="w-full bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-red-500 focus:border-red-500 block p-2"
+                    >
+                        {models.map(model => (
+                            <option key={model.id} value={model.id} disabled={model.disabled} title={model.tooltip}>
+                                {model.name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
                  <button onClick={handleImportClick} className="w-full flex items-center justify-center text-sm py-2 px-3 rounded-md text-gray-300 bg-gray-800 hover:bg-gray-700 transition-colors">
                     <UploadIcon />
                     Import History
@@ -125,25 +145,6 @@ export const ChatHistorySidebar: React.FC<ChatHistorySidebarProps> = ({
                     className="hidden"
                     accept=".json"
                 />
-            </div>
-            <div className="mt-auto pt-4 border-t border-gray-800">
-                <label htmlFor="model-select" className="block text-xs font-medium text-gray-400 mb-2">
-                    Model
-                </label>
-                <div className="relative">
-                    <select
-                        id="model-select"
-                        value={chatModel}
-                        onChange={(e) => onSetChatModel(e.target.value as ChatModel)}
-                        className="w-full bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-red-500 focus:border-red-500 block p-2 appearance-none"
-                    >
-                        <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-                        <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
-                    </div>
-                </div>
             </div>
         </aside>
     );

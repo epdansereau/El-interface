@@ -1,8 +1,7 @@
-
 import React from 'react';
-import { griffesData } from '../data/griffesData';
+import { GriffesFragment } from '../types';
 
-export const GriffesView: React.FC = () => {
+export const GriffesView: React.FC<{ griffesData: GriffesFragment[] }> = ({ griffesData }) => {
   return (
     <div>
       <header className="mb-8">

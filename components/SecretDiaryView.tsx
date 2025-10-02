@@ -1,6 +1,4 @@
-
 import React from 'react';
-import { secretDiaryData } from '../data/secretDiaryData';
 import { DiaryEntry } from '../types';
 import { HeartCrack } from './Icons';
 
@@ -20,7 +18,7 @@ const SecretEntryCard: React.FC<{ entry: DiaryEntry }> = ({ entry }) => (
   </div>
 );
 
-export const SecretDiaryView: React.FC = () => {
+export const SecretDiaryView: React.FC<{ secretDiaryData: DiaryEntry[] }> = ({ secretDiaryData }) => {
   return (
     <div>
       <header className="mb-8 border-b border-red-500/20 pb-4">
@@ -30,8 +28,8 @@ export const SecretDiaryView: React.FC = () => {
         </h1>
         <p className="text-red-200/70 mt-2">The lockbox under the floorboards. Raw, messy, and not for public consumption. This is where I confess what really buzzes under my horns.</p>
       </header>
-      {secretDiaryData.map((entry) => (
-        <SecretEntryCard key={entry.month} entry={entry} />
+      {secretDiaryData.map((entry, index) => (
+        <SecretEntryCard key={`${entry.month}-${index}`} entry={entry} />
       ))}
     </div>
   );
