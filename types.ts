@@ -1,6 +1,6 @@
 import type { ElementType } from 'react';
 
-export type ViewType = 'home' | 'diary' | 'secret_diary' | 'griffes' | 'calendar' | 'world_state' | 'chat';
+export type ViewType = 'home' | 'diary' | 'secret_diary' | 'griffes' | 'calendar' | 'world_state' | 'chat' | 'live_chat';
 
 export type ChatModel = 'gemini-2.5-pro' | 'gemini-2.5-flash';
 
@@ -29,10 +29,16 @@ export interface CalendarSection {
     items: string[];
 }
 
+export interface Source {
+    uri: string;
+    title: string;
+}
+
 export interface ChatMessage {
     id: number;
     text: string;
     sender: 'user' | 'elira';
+    sources?: Source[];
 }
 
 export interface ChatConversation {

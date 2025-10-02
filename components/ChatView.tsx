@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChatConversation, ChatMessage, ChatModel } from '../types';
-import { SendIcon, UserIcon } from './Icons';
+import { ChatConversation, ChatMessage, ChatModel, Source } from '../types';
+import { Globe, SendIcon, UserIcon } from './Icons';
 import { ChatHistorySidebar } from './ChatHistorySidebar';
 
 interface ChatViewProps {
@@ -9,7 +9,7 @@ interface ChatViewProps {
     onSelectConversation: (id: string) => void;
     onNewChat: () => void;
     onDeleteConversation: (id: string) => void;
-    onSendMessage: (message: string) => Promise<void>;
+    onSendMessage: (message: string, useWebSearch: boolean) => Promise<void>;
     isLoading: boolean;
     error: string | null;
     chatModel: ChatModel;
@@ -17,26 +17,53 @@ interface ChatViewProps {
     onImportConversations: (conversations: ChatConversation[]) => void;
 }
 
-const FormattedMessage: React.FC<{ text: string }> = ({ text }) => {
+const MessageSources: React.FC<{ sources: Source[] }> = ({ sources }) => (
+    <div className="mt-3 pt-3 border-t border-gray-700/50">
+        <h4 className="text-xs font-semibold text-gray-400 mb-2">Sources:</h4>
+        <ul className="space-y-1">
+            {sources.map((source, index) => (
+                <li key={index} className="flex items-start gap-2">
+                    <span className="text-gray-500 text-xs mt-1">&#8227;</span>
+                    <a
+                        href={source.uri}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-400 text-sm hover:underline truncate"
+                        title={source.title}
+                    >
+                        {source.title}
+                    </a>
+                </li>
+            ))}
+        </ul>
+    </div>
+);
+
+const FormattedMessage: React.FC<{ message: ChatMessage }> = ({ message }) => {
     // This regex splits the text by bold and italic markers, keeping the markers.
     // It handles **bold** and *italic*.
-    const parts = text.split(/(\*\*.*?\*\*|\*.*?\*)/g);
+    const parts = message.text.split(/(\*\*.*?\*\*|\*.*?\*)/g);
 
     return (
-        <p className="whitespace-pre-wrap leading-relaxed">
-            {parts.map((part, index) => {
-                if (part.startsWith('**') && part.endsWith('**')) {
-                    // It's bold text
-                    return <strong key={index}>{part.slice(2, -2)}</strong>;
-                }
-                if (part.startsWith('*') && part.endsWith('*')) {
-                    // It's italic text
-                    return <em key={index}>{part.slice(1, -1)}</em>;
-                }
-                // It's regular text
-                return part;
-            })}
-        </p>
+        <div>
+            <p className="whitespace-pre-wrap leading-relaxed">
+                {parts.map((part, index) => {
+                    if (part.startsWith('**') && part.endsWith('**')) {
+                        // It's bold text
+                        return <strong key={index}>{part.slice(2, -2)}</strong>;
+                    }
+                    if (part.startsWith('*') && part.endsWith('*')) {
+                        // It's italic text
+                        return <em key={index}>{part.slice(1, -1)}</em>;
+                    }
+                    // It's regular text
+                    return part;
+                })}
+            </p>
+            {message.sources && message.sources.length > 0 && (
+                <MessageSources sources={message.sources} />
+            )}
+        </div>
     );
 };
 
@@ -54,6 +81,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
     onImportConversations,
 }) => {
     const [input, setInput] = useState('');
+    const [useWebSearch, setUseWebSearch] = useState(true);
     const messagesEndRef = useRef<null | HTMLDivElement>(null);
     
     const activeConversation = conversations.find(c => c.id === activeConversationId);
@@ -76,7 +104,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
     const handleSend = () => {
         if (!input.trim() || isLoading) return;
-        onSendMessage(input);
+        onSendMessage(input, useWebSearch);
         setInput('');
     };
 
@@ -127,7 +155,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                                                     <span className="h-2 w-2 bg-red-400 rounded-full animate-pulse"></span>
                                                 </div>
                                             ) : (
-                                                <FormattedMessage text={msg.text} />
+                                                <FormattedMessage message={msg} />
                                             )}
                                         </div>
                                     </div>
@@ -159,6 +187,15 @@ export const ChatView: React.FC<ChatViewProps> = ({
                             rows={1}
                             disabled={isLoading}
                         />
+                        <button
+                            onClick={() => setUseWebSearch(!useWebSearch)}
+                            title="Toggle Web Search"
+                            className={`rounded-md p-2 transition-colors flex items-center justify-center w-10 h-10 self-end ${
+                                useWebSearch ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                            }`}
+                        >
+                           <Globe />
+                        </button>
                         <button
                             onClick={handleSend}
                             disabled={isLoading || !input.trim()}

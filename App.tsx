@@ -8,18 +8,78 @@ import { CalendarView } from './components/CalendarView';
 import { WorldStateView } from './components/WorldStateView';
 import { HomeView } from './components/HomeView';
 import { ChatView } from './components/ChatView';
-import { ViewType, ChatMessage, ChatConversation, ChatModel } from './types';
-import { GoogleGenAI, Chat } from "@google/genai";
+import { LiveChatView } from './components/LiveChatView';
+import { ViewType, ChatMessage, ChatConversation, ChatModel, Source } from './types';
+import { GoogleGenAI } from "@google/genai";
 import { systemInstruction } from './data/eliraDirectives';
+import { diaryData } from './data/diaryData';
+import { secretDiaryData } from './data/secretDiaryData';
+import { griffesData } from './data/griffesData';
+import { calendarData } from './data/calendarData';
+import { worldStateData } from './data/worldStateData';
+
+// Helper function to format data for the system prompt
+const formatDataForSystemInstruction = (title: string, data: any[]): string => {
+    let content = `\n\n## ${title}\n\n`;
+    try {
+        if (!data || data.length === 0) return content;
+
+        // Diary/Secret Diary format
+        if ('month' in data[0] && 'content' in data[0]) {
+            data.forEach(entry => {
+                content += `### ${entry.month}\n`;
+                entry.content.forEach((p: any) => {
+                    if (p.subtitle) content += `#### ${p.subtitle}\n`;
+                    content += `${p.text}\n\n`;
+                });
+            });
+        }
+        // Griffes format
+        else if ('title' in data[0] && 'content' in data[0] && !('items' in data[0])) {
+             data.forEach(fragment => {
+                content += `### ${fragment.title}\n${fragment.content}\n\n`;
+            });
+        }
+        // Calendar format
+        else if ('title' in data[0] && 'items' in data[0]) {
+             data.forEach(section => {
+                content += `### ${section.title}\n`;
+                section.items.forEach((item: string) => {
+                    content += `- ${item}\n`;
+                });
+                content += '\n';
+            });
+        }
+        // World State format (same as Griffes but check explicitly)
+        else if ('title' in data[0] && 'content' in data[0]) {
+             data.forEach(section => {
+                content += `### ${section.title}\n${section.content}\n\n`;
+            });
+        }
+    } catch (e) {
+        console.error(`Error formatting data for system instruction: ${title}`, e);
+    }
+    return content;
+};
+
+// Combine the base directive with all memory files
+const fullSystemInstruction = [
+  systemInstruction,
+  formatDataForSystemInstruction("Elira's Diary (diary.ts)", diaryData),
+  formatDataForSystemInstruction("Elira's Secret Diary (secretDiary.ts)", secretDiaryData),
+  formatDataForSystemInstruction("Griffes & Mémoire (griffes.ts)", griffesData),
+  formatDataForSystemInstruction("Étienne's Calendar (calendar.ts)", calendarData),
+  formatDataForSystemInstruction("World State Briefing (worldState.ts)", worldStateData)
+].join('');
+
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewType>('home');
-  const [chatModel, setChatModel] = useState<ChatModel>('gemini-2.5-pro'); // This is the correct model we're using by default right now, do not change
+  const [chatModel, setChatModel] = useState<ChatModel>('gemini-2.5-flash');
 
   // State for Chat, now supporting multiple conversations
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
-  const chatInstancesRef = useRef<{ [key: string]: Chat }>({});
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const saveTimeoutRef = useRef<number | null>(null);
@@ -44,26 +104,6 @@ const App: React.FC = () => {
         if (parsed && parsed.length > 0) {
           setConversations(parsed);
           setActiveConversationId(parsed[0].id); // Activate the most recent
-
-          // Re-initialize chat instances for loaded conversations
-          const ai = getAiInstance();
-          const newChatInstances: { [key: string]: Chat } = {};
-          for (const conv of parsed) {
-            const history = conv.messages
-              .map(m => ({
-                role: m.sender === 'user' ? 'user' : 'model',
-                parts: [{ text: m.text }],
-              }));
-            
-            const modelForInstance = conv.model || 'gemini-2.5-flash'; // Fallback for old convos
-
-            newChatInstances[conv.id] = ai.chats.create({
-              model: modelForInstance,
-              config: { systemInstruction },
-              history: history,
-            });
-          }
-          chatInstancesRef.current = newChatInstances;
           return;
         }
       }
@@ -98,15 +138,7 @@ const App: React.FC = () => {
     setIsChatLoading(false);
     setChatError(null);
     try {
-      const ai = getAiInstance();
-
-      const newChat = ai.chats.create({
-        model: chatModel,
-        config: { systemInstruction },
-      });
       const newId = `chat_${Date.now()}`;
-      chatInstancesRef.current[newId] = newChat;
-
       const newConversation: ChatConversation = {
         id: newId,
         title: 'New Conversation',
@@ -126,7 +158,6 @@ const App: React.FC = () => {
   const deleteConversation = (idToDelete: string) => {
     const remainingConversations = conversations.filter(c => c.id !== idToDelete);
     setConversations(remainingConversations);
-    delete chatInstancesRef.current[idToDelete];
 
     if (activeConversationId === idToDelete) {
       if (remainingConversations.length > 0) {
@@ -150,31 +181,6 @@ const App: React.FC = () => {
     try {
       setConversations(imported);
       setActiveConversationId(imported[0].id);
-
-      const ai = getAiInstance();
-      const newChatInstances: { [key: string]: Chat } = {};
-      for (const conv of imported) {
-        // Basic validation
-        if (!conv.id || !conv.title || !Array.isArray(conv.messages)) {
-          throw new Error(`Invalid conversation object found: ${JSON.stringify(conv)}`);
-        }
-
-        const history = conv.messages
-          .filter(m => m.text) // Filter out empty placeholder messages
-          .map(m => ({
-            role: m.sender === 'user' ? 'user' : 'model',
-            parts: [{ text: m.text }],
-          }));
-
-        const modelForInstance = conv.model || 'gemini-2.5-flash';
-
-        newChatInstances[conv.id] = ai.chats.create({
-          model: modelForInstance,
-          config: { systemInstruction },
-          history: history,
-        });
-      }
-      chatInstancesRef.current = newChatInstances;
       setChatError(null);
     } catch (error) {
       console.error("Failed to process imported conversations:", error);
@@ -185,14 +191,16 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSendMessage = async (messageText: string) => {
+  const handleSendMessage = async (messageText: string, useWebSearch: boolean) => {
     if (!messageText.trim() || isChatLoading || !activeConversationId) return;
-
-    const chat = chatInstancesRef.current[activeConversationId];
-    if (!chat) {
+    
+    const activeConv = conversations.find(c => c.id === activeConversationId);
+    if (!activeConv) {
       setChatError("This chat session is broken. Please start a new one.");
       return;
     }
+
+    const ai = getAiInstance();
 
     const userMessage: ChatMessage = {
       id: Date.now(),
@@ -201,7 +209,7 @@ const App: React.FC = () => {
     };
     const eliraMessageId = Date.now() + 1;
 
-    const isFirstUserMessage = conversations.find(c => c.id === activeConversationId)?.messages.length === 0;
+    const isFirstUserMessage = activeConv.messages.length === 0;
 
     setConversations(prev => prev.map(conv => {
       if (conv.id === activeConversationId) {
@@ -219,10 +227,45 @@ const App: React.FC = () => {
     setChatError(null);
 
     try {
-      const stream = await chat.sendMessageStream({ message: messageText });
+      const history = activeConv.messages.map(m => ({
+        role: m.sender === 'user' ? 'user' : 'model',
+        parts: [{ text: m.text }],
+      }));
+
+      const contents = [...history, { role: 'user', parts: [{ text: messageText }] }];
+
+      const config: { systemInstruction: string; tools?: any[] } = {
+          systemInstruction: fullSystemInstruction,
+      };
+
+      if (useWebSearch) {
+          config.tools = [{ googleSearch: {} }];
+      }
+
+      const stream = await ai.models.generateContentStream({
+          model: activeConv.model,
+          contents: contents,
+          config: config
+      });
+      
       let eliraResponse = '';
+      const sources: Source[] = [];
+      const collectedUris = new Set<string>();
+
       for await (const chunk of stream) {
         eliraResponse += chunk.text;
+
+        const groundingChunks = chunk.candidates?.[0]?.groundingMetadata?.groundingChunks;
+        if (groundingChunks) {
+            for (const groundingChunk of groundingChunks) {
+                if (groundingChunk.web && !collectedUris.has(groundingChunk.web.uri)) {
+                    sources.push({ uri: groundingChunk.web.uri, title: groundingChunk.web.title || groundingChunk.web.uri });
+                    collectedUris.add(groundingChunk.web.uri);
+                }
+            }
+        }
+        
+        // Update text as it streams
         setConversations(prev => prev.map(conv => {
           if (conv.id === activeConversationId) {
             return {
@@ -235,6 +278,20 @@ const App: React.FC = () => {
           return conv;
         }));
       }
+
+      // Final update with sources
+       setConversations(prev => prev.map(conv => {
+          if (conv.id === activeConversationId) {
+            return {
+              ...conv,
+              messages: conv.messages.map(msg =>
+                msg.id === eliraMessageId ? { ...msg, text: eliraResponse, sources: sources } : msg
+              ),
+            };
+          }
+          return conv;
+        }));
+
     } catch (err) {
       console.error("Error sending message:", err);
       const errorMessage = "Ouch, my horns are buzzing. Something went wrong. Can we try again?";
@@ -268,6 +325,8 @@ const App: React.FC = () => {
           onSetChatModel={setChatModel}
           onImportConversations={handleImportConversations}
         />;
+      case 'live_chat':
+        return <LiveChatView getAiInstance={getAiInstance} setCurrentView={setCurrentView} systemInstruction={fullSystemInstruction} />;
       case 'diary':
         return <DiaryView />;
       case 'secret_diary':
