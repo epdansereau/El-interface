@@ -7,6 +7,7 @@ import { CalendarView } from './components/CalendarView';
 import { WorldStateView } from './components/WorldStateView';
 import { HomeView } from './components/HomeView';
 import { ChatView } from './components/ChatView';
+import { UploadsView } from './components/UploadsView';
 import { LiveChatView } from './components/LiveChatView';
 import { FileEditModal } from './components/FileEditModal';
 import { EditCanvas, EditProposal } from './components/EditCanvas';
@@ -48,6 +49,7 @@ const App: React.FC = () => {
     const [isChatLoading, setIsChatLoading] = useState(false);
     const [chatError, setChatError] = useState<string | null>(null);
     const saveTimeoutRef = useRef<number | null>(null);
+    const [attachedFiles, setAttachedFiles] = useState<string[]>([]);
 
     // Function to load from server when available; otherwise fallback to localStorage/bundled
     const serverUrl = (import.meta as any).env?.VITE_SERVER_URL || '';
@@ -504,7 +506,9 @@ const App: React.FC = () => {
     const renderView = () => {
         switch (currentView) {
             case 'chat':
-                return <ChatView conversations={conversations} activeConversationId={activeConversationId} onSelectConversation={setActiveConversationId} onNewChat={startNewChat} onDeleteConversation={deleteConversation} onSendMessage={handleSendMessage} isLoading={isChatLoading} error={chatError} onImportConversations={handleImportConversations} chatModel={chatModel} onSetChatModel={setChatModel} />;
+                return <ChatView conversations={conversations} activeConversationId={activeConversationId} onSelectConversation={setActiveConversationId} onNewChat={startNewChat} onDeleteConversation={deleteConversation} onSendMessage={handleSendMessage} isLoading={isChatLoading} error={chatError} onImportConversations={handleImportConversations} chatModel={chatModel} onSetChatModel={setChatModel} attachedFiles={attachedFiles} onSetAttachedFiles={setAttachedFiles} apiBase={apiBase} />;
+            case 'uploads':
+                return <UploadsView apiBase={apiBase} />;
             case 'live_chat':
                 return <LiveChatView getAiInstance={getAiInstance} setCurrentView={setCurrentView} systemInstruction={getFullSystemInstruction()} />;
             case 'diary':

@@ -1,6 +1,6 @@
 import type { ElementType } from 'react';
 
-export type ViewType = 'home' | 'diary' | 'secret_diary' | 'griffes' | 'calendar' | 'world_state' | 'chat' | 'live_chat';
+export type ViewType = 'home' | 'diary' | 'secret_diary' | 'griffes' | 'calendar' | 'world_state' | 'chat' | 'live_chat' | 'uploads';
 
 // Do not remove 'gemini-2.5-pro', it is the latest model and the user wants it.
 export type ChatModel =
@@ -61,4 +61,10 @@ export interface ChatConversation {
     title: string;
     messages: ChatMessage[];
     model: ChatModel;
+}
+
+export interface UploadedFileInfo {
+    name: string;
+    size: number;
+    mtime: number;
 }

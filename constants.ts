@@ -1,5 +1,5 @@
 import { NavItem } from './types';
-import { HomeIcon, BookOpen, HeartCrack, PenSquare, CalendarDays, Globe, MessageSquareIcon, MicIcon } from './components/Icons';
+import { HomeIcon, BookOpen, HeartCrack, PenSquare, CalendarDays, Globe, MessageSquareIcon, MicIcon, FolderPlus } from './components/Icons';
 
 export const NAV_ITEMS: NavItem[] = [
   { id: 'home', label: 'Home', icon: HomeIcon },
@@ -10,4 +10,5 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'griffes', label: 'Griffes & Mémoire', icon: PenSquare },
   { id: 'calendar', label: 'Calendar', icon: CalendarDays },
   { id: 'world_state', label: 'World State', icon: Globe },
+  { id: 'uploads', label: 'Uploads', icon: FolderPlus },
 ];
