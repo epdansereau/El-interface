@@ -21,12 +21,19 @@ const renderItemWithDates = (itemText: string) => {
 };
 
 
-export const CalendarView: React.FC<{ calendarData: CalendarSection[] }> = ({ calendarData }) => {
+export const CalendarView: React.FC<{ calendarData: CalendarSection[]; onEdit?: () => void }> = ({ calendarData, onEdit }) => {
   return (
     <div>
-      <header className="mb-8">
-        <h1 className="text-4xl font-extrabold text-white">Étienne's Calendar</h1>
-        <p className="text-gray-400 mt-1">My messy-smart control room for Étienne’s life-stuff. I keep him steady.</p>
+      <header className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-4xl font-extrabold text-white">Étienne's Calendar</h1>
+          <p className="text-gray-400 mt-1">My messy-smart control room for Étienne’s life-stuff. I keep him steady.</p>
+        </div>
+        {onEdit && (
+          <button onClick={onEdit} className="bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-4 py-2 rounded-md">
+            Edit File
+          </button>
+        )}
       </header>
 
       {calendarData.map((section, sectionIndex) => (

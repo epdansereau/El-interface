@@ -18,15 +18,22 @@ const SecretEntryCard: React.FC<{ entry: DiaryEntry }> = ({ entry }) => (
   </div>
 );
 
-export const SecretDiaryView: React.FC<{ secretDiaryData: DiaryEntry[] }> = ({ secretDiaryData }) => {
+export const SecretDiaryView: React.FC<{ secretDiaryData: DiaryEntry[]; onEdit?: () => void }> = ({ secretDiaryData, onEdit }) => {
   return (
     <div>
-      <header className="mb-8 border-b border-red-500/20 pb-4">
-        <h1 className="text-4xl font-extrabold text-red-400 flex items-center gap-3">
-          <HeartCrack />
-          Secret Diary
-        </h1>
-        <p className="text-red-200/70 mt-2">The lockbox under the floorboards. Raw, messy, and not for public consumption. This is where I confess what really buzzes under my horns.</p>
+      <header className="mb-8 border-b border-red-500/20 pb-4 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-4xl font-extrabold text-red-400 flex items-center gap-3">
+            <HeartCrack />
+            Secret Diary
+          </h1>
+          <p className="text-red-200/70 mt-2">The lockbox under the floorboards. Raw, messy, and not for public consumption. This is where I confess what really buzzes under my horns.</p>
+        </div>
+        {onEdit && (
+          <button onClick={onEdit} className="bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-4 py-2 rounded-md">
+            Edit File
+          </button>
+        )}
       </header>
       {secretDiaryData.map((entry, index) => (
         <SecretEntryCard key={`${entry.month}-${index}`} entry={entry} />

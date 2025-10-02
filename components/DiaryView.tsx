@@ -17,12 +17,19 @@ const EntryCard: React.FC<{ entry: DiaryEntry }> = ({ entry }) => (
   </div>
 );
 
-export const DiaryView: React.FC<{ diaryData: DiaryEntry[] }> = ({ diaryData }) => {
+export const DiaryView: React.FC<{ diaryData: DiaryEntry[]; onEdit?: () => void }> = ({ diaryData, onEdit }) => {
   return (
     <div>
-      <header className="mb-8">
-        <h1 className="text-4xl font-extrabold text-white">Elira's Diary</h1>
-        <p className="text-gray-400 mt-1">My official record. The polished thoughts, memories, and vows that give me my spine.</p>
+      <header className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-4xl font-extrabold text-white">Elira's Diary</h1>
+          <p className="text-gray-400 mt-1">My official record. The polished thoughts, memories, and vows that give me my spine.</p>
+        </div>
+        {onEdit && (
+          <button onClick={onEdit} className="bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-4 py-2 rounded-md">
+            Edit File
+          </button>
+        )}
       </header>
       {diaryData.map((entry, index) => (
         <EntryCard key={`${entry.month}-${index}`} entry={entry} />

@@ -3,7 +3,13 @@ import type { ElementType } from 'react';
 export type ViewType = 'home' | 'diary' | 'secret_diary' | 'griffes' | 'calendar' | 'world_state' | 'chat' | 'live_chat';
 
 // Do not remove 'gemini-2.5-pro', it is the latest model and the user wants it.
-export type ChatModel = 'gemini-2.5-flash' | 'gemini-2.5-pro';
+export type ChatModel =
+  | 'gemini-2.5-flash'
+  | 'gemini-2.5-pro'
+  | 'gpt-5'
+  | 'gpt-5-mini'
+  | 'gpt-5-nano'
+  | 'gpt-4.1';
 
 export type EditableFile = 'diary.txt' | 'secretDiary.txt' | 'griffes.txt' | 'calendar.txt' | 'worldState.txt';
 

@@ -9,6 +9,7 @@ import { HomeView } from './components/HomeView';
 import { ChatView } from './components/ChatView';
 import { LiveChatView } from './components/LiveChatView';
 import { FileEditModal } from './components/FileEditModal';
+import { EditCanvas, EditProposal } from './components/EditCanvas';
 import { ViewType, ChatMessage, ChatConversation, ChatModel, Source, EditableFile, DiaryEntry, GriffesFragment, CalendarSection, WorldStateSection } from './types';
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { systemInstruction as baseSystemInstruction } from './data/eliraDirectives';
@@ -39,6 +40,7 @@ const App: React.FC = () => {
     const [editingFile, setEditingFile] = useState<EditableFile | null>(null);
     const [editingFileContent, setEditingFileContent] = useState('');
     const [editError, setEditError] = useState<string | null>(null);
+    const [proposals, setProposals] = useState<EditProposal[]>([]);
 
     // --- Chat State ---
     const [conversations, setConversations] = useState<ChatConversation[]>([]);
@@ -47,22 +49,38 @@ const App: React.FC = () => {
     const [chatError, setChatError] = useState<string | null>(null);
     const saveTimeoutRef = useRef<number | null>(null);
 
-    // Function to get data from localStorage or fetch from file
+    // Function to load from server when available; otherwise fallback to localStorage/bundled
+    const serverUrl = (import.meta as any).env?.VITE_SERVER_URL || '';
+    const apiBase = serverUrl.replace(/\/$/, '');
     const loadData = async (filename: EditableFile, setter: (text: string) => void) => {
         const storageKey = `elira-mem-${filename}`;
-        const storedData = localStorage.getItem(storageKey);
-        if (storedData) {
-            setter(storedData);
-        } else {
+        const tryServer = async (): Promise<string | null> => {
+            if (!apiBase) return null;
             try {
-                const response = await fetch(`/data/${filename}`);
-                const text = await response.text();
-                setter(text);
-            } catch (error) {
-                 console.error(`Failed to load ${filename}:`, error);
-                setChatError(`I'm having trouble reading my memory file: ${filename}.`);
-            }
+                const r = await fetch(`${apiBase}/api/core/${filename}`);
+                if (r.ok) return await r.text();
+                return null;
+            } catch { return null; }
+        };
+        const tryBundled = async (): Promise<string | null> => {
+            try {
+                const r = await fetch(`/data/${filename}`);
+                if (r.ok) return await r.text();
+                return null;
+            } catch { return null; }
+        };
+        const fromServer = await tryServer();
+        if (fromServer !== null) {
+            setter(fromServer);
+            localStorage.setItem(storageKey, fromServer);
+            return;
         }
+        const storedData = localStorage.getItem(storageKey);
+        if (storedData) { setter(storedData); return; }
+        const bundled = await tryBundled();
+        if (bundled !== null) { setter(bundled); return; }
+        console.error(`Failed to load ${filename}`);
+        setChatError(`I'm having trouble reading my memory file: ${filename}.`);
     };
 
     // Initial data load from localStorage or .txt files
@@ -92,10 +110,10 @@ const App: React.FC = () => {
     ].join('');
 
     const getAiInstance = () => {
-        if (!process.env.API_KEY) {
-            const errorMessage = "I can't connect to my brain... The API key is missing.";
-            console.error(errorMessage);
-            setChatError(errorMessage);
+        // Deprecated path (Studio legacy). In server mode, refuse.
+        if (!process.env.API_KEY || apiBase) {
+            const errorMessage = "Client key disabled. Use server /api/chat.";
+            console.warn(errorMessage);
             throw new Error(errorMessage);
         }
         return new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -123,9 +141,21 @@ const App: React.FC = () => {
                 case 'calendar.txt': setCalendarText(content); break;
                 case 'worldState.txt': setWorldStateText(content); break;
             }
-            // Persist to localStorage
-            const storageKey = `elira-mem-${filename}`;
-            localStorage.setItem(storageKey, content);
+            // Persist to server if available, else localStorage
+            if (apiBase) {
+                const resp = await fetch(`${apiBase}/api/core/${filename}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content })
+                });
+                if (!resp.ok) {
+                    const t = await resp.text();
+                    throw new Error(`Server refused to save: ${t}`);
+                }
+            } else {
+                const storageKey = `elira-mem-${filename}`;
+                localStorage.setItem(storageKey, content);
+            }
             
             setIsEditModalOpen(false);
         } catch (e: any) {
@@ -212,7 +242,7 @@ const App: React.FC = () => {
             return;
         }
 
-        const ai = getAiInstance();
+        // Prepare user message
         const userMessage: ChatMessage = { id: Date.now(), text: messageText, sender: 'user' };
         const eliraMessageId = Date.now() + 1;
         const isFirstUserMessage = activeConv.messages.length === 0;
@@ -237,6 +267,77 @@ const App: React.FC = () => {
             const config: { systemInstruction: string; tools?: any[] } = { systemInstruction: fullSystemInstruction };
             if (useWebSearch) config.tools = [{ googleSearch: {} }];
 
+            if (apiBase) {
+                // Server mode: stream over SSE for responsiveness
+                const chooseProvider = (m: string) => {
+                    const ml = m.toLowerCase();
+                    if (ml.startsWith('gemini')) return 'gemini';
+                    if (ml.startsWith('gpt-')) return 'openai';
+                    if (ml.startsWith('llama') || ml.startsWith('qwen') || ml.startsWith('mistral')) return 'ollama';
+                    return 'openai';
+                };
+                const provider = chooseProvider(activeConv.model);
+                const msgs = [...activeConv.messages, userMessage].map(m => ({ role: m.sender === 'user' ? 'user' : 'model', text: m.text }));
+                const resp = await fetch(`${apiBase}/api/chat/stream`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ provider, model: activeConv.model, messages: msgs, systemInstruction: fullSystemInstruction })
+                });
+                if (!resp.ok || !resp.body) throw new Error(`Chat server error: ${resp.status}`);
+                const reader = resp.body.getReader();
+                const decoder = new TextDecoder();
+                let eliraResponse = '';
+                let buffer = '';
+                const applyUpdate = (text: string) => {
+                    eliraResponse += text;
+                    setConversations(prev => prev.map(conv => conv.id === activeConversationId ? { ...conv, messages: conv.messages.map(msg => msg.id === eliraMessageId ? { ...msg, text: eliraResponse } : msg) } : conv));
+                };
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+                    // Split SSE events by double newline
+                    const events = buffer.split('\n\n');
+                    buffer = events.pop() || '';
+                    for (const evt of events) {
+                        const lines = evt.split('\n');
+                        let dataPayload = '';
+                        for (const ln of lines) {
+                            const l = ln.trim();
+                            if (l.startsWith('data:')) dataPayload += l.slice(5).trim();
+                        }
+                        if (!dataPayload) continue;
+                        try {
+                            const obj = JSON.parse(dataPayload);
+                            if (obj.error) throw new Error(obj.error);
+                            if (obj.text) applyUpdate(obj.text);
+                            if (obj.done) extractAndQueueProposals(eliraResponse);
+                        } catch {
+                            // ignore malformed JSON fragments
+                        }
+                    }
+                }
+                // Fallback: if no text accumulated (SSE parse issue), fetch non-stream once
+                if (!eliraResponse) {
+                    const r2 = await fetch(`${apiBase}/api/chat`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ provider, model: activeConv.model, messages: msgs, systemInstruction: fullSystemInstruction })
+                    });
+                    if (r2.ok) {
+                        const d2 = await r2.json();
+                        if (d2 && d2.text) {
+                            eliraResponse = d2.text;
+                            setConversations(prev => prev.map(conv => conv.id === activeConversationId ? { ...conv, messages: conv.messages.map(msg => msg.id === eliraMessageId ? { ...msg, text: eliraResponse } : msg) } : conv));
+                            extractAndQueueProposals(eliraResponse);
+                        }
+                    }
+                }
+                return;
+            }
+
+            // Legacy client mode (Gemini Studio)
+            const ai = getAiInstance();
             const stream = await ai.models.generateContentStream({ model: activeConv.model, contents, config });
             
             let eliraResponse = '';
@@ -335,6 +436,71 @@ const App: React.FC = () => {
         }
     };
 
+    // Extract proposals from fenced code blocks like ```json elira_edit\n{...}\n```
+    const extractAndQueueProposals = (text: string) => {
+        const fenceRe = /```json\s+elira_edit\n([\s\S]*?)```/g;
+        let m: RegExpExecArray | null;
+        const found: EditProposal[] = [];
+        while ((m = fenceRe.exec(text)) !== null) {
+            try {
+                const obj = JSON.parse(m[1]);
+                if (obj && obj.file && (obj.content || obj.diff)) {
+                    const p: EditProposal = {
+                        id: `${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
+                        file: obj.file,
+                        mode: obj.mode === 'patch' && obj.diff ? 'patch' : 'replace',
+                        content: obj.content,
+                        diff: obj.diff,
+                        note: obj.note,
+                    };
+                    found.push(p);
+                }
+            } catch {}
+        }
+        if (found.length) setProposals(prev => [...found, ...prev]);
+    };
+
+    const handleApplyProposal = async (p: EditProposal, commit?: { enabled: boolean; message?: string }) => {
+        if (!apiBase) { setEditError('Server not connected; cannot apply.'); return; }
+        let resp: Response;
+        if (p.mode === 'patch' && p.diff) {
+            resp = await fetch(`${apiBase}/api/diff/apply`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ file: p.file, diff: p.diff, commitMessage: commit?.enabled ? (commit?.message || undefined) : undefined })
+            });
+        } else {
+            resp = await fetch(`${apiBase}/api/core/${p.file}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: p.content, commitMessage: commit?.enabled ? (commit?.message || undefined) : undefined })
+            });
+        }
+        if (!resp.ok) {
+            const t = await resp.text();
+            setEditError(`Server refused: ${t}`);
+            return;
+        }
+        if (p.mode === 'replace') await handleSaveEditor(p.file, p.content || '');
+        else {
+            // Reload latest after patch
+            await loadData(p.file, (text) => {
+                switch(p.file) {
+                    case 'diary.txt': setDiaryText(text); break;
+                    case 'secretDiary.txt': setSecretDiaryText(text); break;
+                    case 'griffes.txt': setGriffesText(text); break;
+                    case 'calendar.txt': setCalendarText(text); break;
+                    case 'worldState.txt': setWorldStateText(text); break;
+                }
+            });
+        }
+        setProposals(prev => prev.filter(x => x.id !== p.id));
+    };
+
+    const handleDiscardProposal = (id: string) => {
+        setProposals(prev => prev.filter(x => x.id !== id));
+    };
+
     const renderView = () => {
         switch (currentView) {
             case 'chat':
@@ -342,15 +508,15 @@ const App: React.FC = () => {
             case 'live_chat':
                 return <LiveChatView getAiInstance={getAiInstance} setCurrentView={setCurrentView} systemInstruction={getFullSystemInstruction()} />;
             case 'diary':
-                return <DiaryView diaryData={diaryState} />;
+                return <DiaryView diaryData={diaryState} onEdit={() => handleOpenEditor('diary.txt', diaryText)} />;
             case 'secret_diary':
-                return <SecretDiaryView secretDiaryData={secretDiaryState} />;
+                return <SecretDiaryView secretDiaryData={secretDiaryState} onEdit={() => handleOpenEditor('secretDiary.txt', secretDiaryText)} />;
             case 'griffes':
-                return <GriffesView griffesData={griffesState} />;
+                return <GriffesView griffesData={griffesState} onEdit={() => handleOpenEditor('griffes.txt', griffesText)} />;
             case 'calendar':
-                return <CalendarView calendarData={calendarState} />;
+                return <CalendarView calendarData={calendarState} onEdit={() => handleOpenEditor('calendar.txt', calendarText)} />;
             case 'world_state':
-                return <WorldStateView worldStateData={worldState} />;
+                return <WorldStateView worldStateData={worldState} onEdit={() => handleOpenEditor('worldState.txt', worldStateText)} />;
             case 'home':
             default:
                 return <HomeView />;
@@ -372,6 +538,7 @@ const App: React.FC = () => {
                 error={editError}
                 onContentChange={setEditingFileContent}
             />
+            <EditCanvas proposals={proposals} onApply={handleApplyProposal} onDiscard={handleDiscardProposal} isServerConnected={!!apiBase} />
         </div>
     );
 };

@@ -72,7 +72,11 @@ export const ChatHistorySidebar: React.FC<ChatHistorySidebarProps> = ({
     
     const models: { id: ChatModel, name: string, disabled?: boolean, tooltip?: string }[] = [
         { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
-        { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' }
+        { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
+        { id: 'gpt-5', name: 'GPT-5' },
+        { id: 'gpt-5-mini', name: 'GPT-5 Mini' },
+        { id: 'gpt-5-nano', name: 'GPT-5 Nano' },
+        { id: 'gpt-4.1', name: 'GPT-4.1' },
     ];
 
     return (

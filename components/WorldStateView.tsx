@@ -41,12 +41,19 @@ const MarkdownRenderer: React.FC<{ content: string }> = ({ content }) => {
 };
 
 
-export const WorldStateView: React.FC<{ worldStateData: WorldStateSection[] }> = ({ worldStateData }) => {
+export const WorldStateView: React.FC<{ worldStateData: WorldStateSection[]; onEdit?: () => void }> = ({ worldStateData, onEdit }) => {
   return (
     <div>
-      <header className="mb-8">
-        <h1 className="text-4xl font-extrabold text-white">World State Briefing</h1>
-        <p className="text-gray-400 mt-1">My seismograph for the outside world, laced with my own claws-out opinions.</p>
+      <header className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-4xl font-extrabold text-white">World State Briefing</h1>
+          <p className="text-gray-400 mt-1">My seismograph for the outside world, laced with my own claws-out opinions.</p>
+        </div>
+        {onEdit && (
+          <button onClick={onEdit} className="bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-4 py-2 rounded-md">
+            Edit File
+          </button>
+        )}
       </header>
       
       {worldStateData.map((section, index) => (
