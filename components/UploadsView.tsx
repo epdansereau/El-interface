@@ -54,6 +54,24 @@ export const UploadsView: React.FC<UploadsViewProps> = ({ apiBase, onOpenInCanva
   const onDragOver = (e: React.DragEvent) => e.preventDefault();
 
   const downloadUrl = (name: string) => `${apiBase}/api/files/${encodeURIComponent(name)}`;
+  const [preview, setPreview] = useState<{ name: string; text: string; kind: string } | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const previewFile = async (name: string) => {
+    if (!apiBase) { setError('Server not connected.'); return; }
+    setIsPreviewLoading(true);
+    setPreview(null);
+    try {
+      const r = await fetch(`${apiBase}/api/files/${encodeURIComponent(name)}/text`);
+      const t = await r.text();
+      if (!r.ok) throw new Error(t);
+      const data = JSON.parse(t);
+      setPreview({ name, text: String(data.text || ''), kind: String(data.kind || '') });
+    } catch (e: any) {
+      setError(e.message || 'Preview failed');
+    } finally {
+      setIsPreviewLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -97,6 +115,9 @@ export const UploadsView: React.FC<UploadsViewProps> = ({ apiBase, onOpenInCanva
                       Open in Canvas
                     </button>
                   )}
+                  <button className="text-sm text-gray-300 hover:text-white border border-gray-700 rounded px-2 py-1" onClick={() => previewFile(f.name)}>
+                    Preview
+                  </button>
                 </div>
               </li>
             ))}
@@ -104,6 +125,18 @@ export const UploadsView: React.FC<UploadsViewProps> = ({ apiBase, onOpenInCanva
               <li className="py-2 text-gray-500">No files uploaded yet.</li>
             )}
           </ul>
+          {(isPreviewLoading || preview) && (
+            <div className="mt-4 border-t border-gray-800 pt-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-white text-sm">Preview</h4>
+                {preview && <span className="text-xs text-gray-500">{preview.kind}</span>}
+              </div>
+              {isPreviewLoading && <div className="text-xs text-gray-400">Loading…</div>}
+              {preview && (
+                <pre className="mt-2 max-h-64 overflow-auto text-xs bg-black/40 text-gray-200 p-2 rounded whitespace-pre-wrap">{preview.text.slice(0, 4000)}</pre>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
