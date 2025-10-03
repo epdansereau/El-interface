@@ -261,11 +261,31 @@ const App: React.FC = () => {
         setChatError(null);
 
         try {
+            // Prepare attachments payload (server mode only)
+            const buildAttachmentsBlock = async (): Promise<string> => {
+                if (!apiBase || attachedFiles.length === 0) return '';
+                const parts: string[] = [];
+                for (const name of attachedFiles) {
+                    try {
+                        const res = await fetch(`${apiBase}/api/files/${encodeURIComponent(name)}`);
+                        if (!res.ok) { parts.push(`Attachment: ${name} (failed to fetch)`); continue; }
+                        const txt = await res.text();
+                        const content = txt.length > 200000 ? (txt.slice(0, 200000) + `\n[... truncated ${txt.length - 200000} chars ...]`) : txt;
+                        parts.push(`<<FILE name="${name}">>\n${content}\n<<END FILE>>`);
+                    } catch (e) {
+                        parts.push(`Attachment: ${name} (error reading)`);
+                    }
+                }
+                return parts.length ? `Attached files provided below. Read them fully before answering.\n\n${parts.join('\n\n')}` : '';
+            };
+
+            const attachmentsBlock = await buildAttachmentsBlock();
+            const userSendText = attachmentsBlock ? `${attachmentsBlock}\n\n${messageText}` : messageText;
             const history = activeConv.messages.map(m => ({
                 role: m.sender === 'user' ? 'user' : 'model',
                 parts: [{ text: m.text }],
             }));
-            const contents = [...history, { role: 'user', parts: [{ text: messageText }] }];
+            const contents = [...history, { role: 'user', parts: [{ text: userSendText }] }];
             const config: { systemInstruction: string; tools?: any[] } = { systemInstruction: fullSystemInstruction };
             if (useWebSearch) config.tools = [{ googleSearch: {} }];
 
@@ -279,7 +299,7 @@ const App: React.FC = () => {
                     return 'openai';
                 };
                 const provider = chooseProvider(activeConv.model);
-                const msgs = [...activeConv.messages, userMessage].map(m => ({ role: m.sender === 'user' ? 'user' : 'model', text: m.text }));
+                const msgs = [...activeConv.messages.map(m => ({ role: m.sender === 'user' ? 'user' : 'model', text: m.text })), { role: 'user', text: userSendText }];
                 const resp = await fetch(`${apiBase}/api/chat/stream`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

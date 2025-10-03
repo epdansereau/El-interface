@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ChatConversation, ChatMessage, Source, ChatModel } from '../types';
-import { Globe, SendIcon, UserIcon } from './Icons';
+import { ChatConversation, ChatMessage, Source, ChatModel, UploadedFileInfo } from '../types';
+import { Globe, SendIcon, UserIcon, PaperclipIcon } from './Icons';
 import { ChatHistorySidebar } from './ChatHistorySidebar';
 
 interface ChatViewProps {
@@ -16,6 +16,9 @@ interface ChatViewProps {
     onImportConversations: (conversations: ChatConversation[]) => void;
     chatModel: ChatModel;
     onSetChatModel: (model: ChatModel) => void;
+    attachedFiles: string[];
+    onSetAttachedFiles: (names: string[]) => void;
+    apiBase: string;
 }
 
 const MessageSources: React.FC<{ sources: Source[] }> = ({ sources }) => (
@@ -80,9 +83,19 @@ export const ChatView: React.FC<ChatViewProps> = ({
     onImportConversations,
     chatModel,
     onSetChatModel,
+    attachedFiles,
+    onSetAttachedFiles,
+    apiBase,
 }) => {
     const [input, setInput] = useState('');
     const [useWebSearch, setUseWebSearch] = useState(true);
+    const [isAttachOpen, setIsAttachOpen] = useState(false);
+    const [serverFiles, setServerFiles] = useState<UploadedFileInfo[]>([]);
+    const [attachError, setAttachError] = useState<string | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const attachPanelRef = useRef<HTMLDivElement | null>(null);
+    const attachButtonRef = useRef<HTMLButtonElement | null>(null);
     const messagesEndRef = useRef<null | HTMLDivElement>(null);
     
     const activeConversation = conversations.find(c => c.id === activeConversationId);
@@ -107,6 +120,72 @@ export const ChatView: React.FC<ChatViewProps> = ({
         if (!input.trim() || isLoading) return;
         onSendMessage(input, useWebSearch);
         setInput('');
+    };
+
+    const refreshServerFiles = async () => {
+        if (!apiBase) { setAttachError('Server not connected'); return; }
+        setAttachError(null);
+        try {
+            const r = await fetch(`${apiBase}/api/files`);
+            if (!r.ok) throw new Error(await r.text());
+            const data = await r.json();
+            setServerFiles(data.files || []);
+        } catch (e: any) {
+            setAttachError(e.message || 'Failed to load files');
+        }
+    };
+
+    const handleFileSelect = async (files: FileList | null) => {
+        if (!files || files.length === 0) return;
+        if (!apiBase) { setAttachError('Server not connected'); return; }
+        setAttachError(null);
+        setIsUploading(true);
+        try {
+            const form = new FormData();
+            Array.from(files).forEach(f => form.append('files', f));
+            const r = await fetch(`${apiBase}/api/files`, { method: 'POST', body: form });
+            if (!r.ok) throw new Error(await r.text());
+            await refreshServerFiles();
+        } catch (e: any) {
+            setAttachError(e.message || 'Upload failed');
+        } finally {
+            setIsUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    const toggleAttachOpen = () => {
+        const next = !isAttachOpen;
+        setIsAttachOpen(next);
+        if (next) refreshServerFiles();
+    };
+
+    // Close attach panel when clicking outside or pressing Escape
+    useEffect(() => {
+        if (!isAttachOpen) return;
+        const onDocClick = (e: MouseEvent) => {
+            const panel = attachPanelRef.current;
+            const btn = attachButtonRef.current;
+            const target = e.target as Node | null;
+            if (!panel || !target) return;
+            if (panel.contains(target)) return;
+            if (btn && btn.contains(target)) return;
+            setIsAttachOpen(false);
+        };
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setIsAttachOpen(false);
+        };
+        document.addEventListener('mousedown', onDocClick);
+        document.addEventListener('keydown', onKey);
+        return () => {
+            document.removeEventListener('mousedown', onDocClick);
+            document.removeEventListener('keydown', onKey);
+        };
+    }, [isAttachOpen]);
+
+    const toggleFile = (name: string) => {
+        if (attachedFiles.includes(name)) onSetAttachedFiles(attachedFiles.filter(n => n !== name));
+        else onSetAttachedFiles([...attachedFiles, name]);
     };
 
     return (
@@ -173,7 +252,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                             {error}
                         </div>
                     )}
-                    <div className="flex items-start gap-3 bg-gray-900/50 border border-gray-700 rounded-lg p-2 focus-within:ring-2 focus-within:ring-red-500 transition-shadow">
+                    <div className="flex items-start gap-3 bg-gray-900/50 border border-gray-700 rounded-lg p-2 focus-within:ring-2 focus-within:ring-red-500 transition-shadow relative">
                         <textarea
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
@@ -188,6 +267,20 @@ export const ChatView: React.FC<ChatViewProps> = ({
                             rows={1}
                             disabled={isLoading}
                         />
+                        <div className="flex flex-col items-center gap-2 self-end">
+                          <button
+                            ref={attachButtonRef}
+                            onClick={toggleAttachOpen}
+                            title="Attach files"
+                            aria-label="Attach files"
+                            className={`rounded-md p-2 ${isAttachOpen ? 'bg-gray-700 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
+                          >
+                            <PaperclipIcon />
+                          </button>
+                          {attachedFiles.length > 0 && (
+                            <div className="text-xs text-gray-400">{attachedFiles.length} attached</div>
+                          )}
+                        </div>
                         <button
                             onClick={() => setUseWebSearch(!useWebSearch)}
                             title="Toggle Web Search"
@@ -204,6 +297,33 @@ export const ChatView: React.FC<ChatViewProps> = ({
                         >
                            <SendIcon />
                         </button>
+
+                        {isAttachOpen && (
+                          <div ref={attachPanelRef} className="absolute bottom-14 right-2 w-96 max-h-80 overflow-auto bg-gray-900 border border-gray-700 rounded-lg shadow-xl p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div className="text-sm text-white">Uploaded files</div>
+                              <button className="text-xs text-gray-300 hover:text-white" onClick={refreshServerFiles}>Refresh</button>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <input ref={fileInputRef} type="file" multiple className="hidden" id="chatFileInput" onChange={(e) => handleFileSelect(e.target.files)} />
+                              <label htmlFor="chatFileInput" className="px-2 py-1 bg-red-600 text-white rounded text-xs cursor-pointer">Choose Files</label>
+                              {isUploading && <span className="text-xs text-gray-400">Uploading…</span>}
+                            </div>
+                            {attachError && (<div className="text-xs text-red-300">{attachError}</div>)}
+                            <ul className="space-y-1 mt-1">
+                              {serverFiles.map(f => (
+                                <li key={f.name}>
+                                  <label className="flex items-center gap-2 text-sm text-gray-200">
+                                    <input type="checkbox" checked={attachedFiles.includes(f.name)} onChange={() => toggleFile(f.name)} />
+                                    <span className="truncate">{f.name}</span>
+                                    <span className="text-xs text-gray-500">{(f.size/1024).toFixed(1)} KB</span>
+                                  </label>
+                                </li>
+                              ))}
+                              {serverFiles.length === 0 && (<li className="text-xs text-gray-500">No files uploaded yet.</li>)}
+                            </ul>
+                          </div>
+                        )}
                     </div>
                 </div>
             </div>

@@ -105,3 +105,9 @@ export const DownloadIcon: React.FC = () => (
         <line x1="12" x2="12" y1="15" y2="3" />
     </svg>
 );
+
+export const PaperclipIcon: React.FC = () => (
+  <svg {...iconProps} viewBox="0 0 24 24" className="h-5 w-5">
+    <path d="M21.44 11.05 12 20.5a6 6 0 0 1-8.49-8.49L12 3.5a4 4 0 0 1 5.66 5.66L8.5 18.32a2 2 0 1 1-2.83-2.83L15 6.17" />
+  </svg>
+);
