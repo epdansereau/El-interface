@@ -99,9 +99,23 @@ export const ChatView: React.FC<ChatViewProps> = ({
     const openInCanvas = async (name: string) => {
         try {
             if (!apiBase) { setAttachError('Server not connected'); return; }
-            const r = await fetch(`${apiBase}/api/files/${encodeURIComponent(name)}`);
-            if (!r.ok) throw new Error(await r.text());
-            const text = await r.text();
+            let text = '';
+            try {
+                const rText = await fetch(`${apiBase}/api/files/${encodeURIComponent(name)}/text`);
+                if (rText.ok) {
+                    const data = await rText.json();
+                    text = String(data.text || '');
+                }
+            } catch {}
+            if (!text) {
+                const r = await fetch(`${apiBase}/api/files/${encodeURIComponent(name)}`);
+                if (!r.ok) throw new Error(await r.text());
+                const raw = await r.text();
+                if (/\u0000/.test(raw)) {
+                    throw new Error('Binary file cannot be opened as text. Use Preview or convert to text.');
+                }
+                text = raw;
+            }
             const event = new CustomEvent('elira-open-canvas', { detail: { kind: 'workspace', name, content: text } });
             window.dispatchEvent(event);
             setIsAttachOpen(false);

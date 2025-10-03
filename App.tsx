@@ -603,9 +603,21 @@ const App: React.FC = () => {
     const openWorkspaceInCanvas = async (name: string) => {
         if (!apiBase) { setEditError('Server not connected; cannot open canvas.'); return; }
         try {
-            const r = await fetch(`${apiBase}/api/files/${encodeURIComponent(name)}`);
-            if (!r.ok) throw new Error(await r.text());
-            const text = await r.text();
+            let text = '';
+            try {
+                const rText = await fetch(`${apiBase}/api/files/${encodeURIComponent(name)}/text`);
+                if (rText.ok) {
+                    const data = await rText.json();
+                    text = String(data.text || '');
+                }
+            } catch {}
+            if (!text) {
+                const r = await fetch(`${apiBase}/api/files/${encodeURIComponent(name)}`);
+                if (!r.ok) throw new Error(await r.text());
+                const raw = await r.text();
+                if (/\u0000/.test(raw)) throw new Error('Binary file cannot be opened as text. Use Preview or convert first.');
+                text = raw;
+            }
             const id = `${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
             const p: EditProposal = { id, file: `workspace:${name}`, mode: 'replace', content: text, note: 'Opened from uploads' };
             setProposals(prev => [p, ...prev]);
