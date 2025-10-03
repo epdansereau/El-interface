@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { DiaryView } from './components/DiaryView';
 import { SecretDiaryView } from './components/SecretDiaryView';
@@ -106,8 +106,8 @@ const App: React.FC = () => {
         baseSystemInstruction,
         "\n\n## Elira's Diary (diary.txt)\n\n" + diaryText,
         "\n\n## Elira's Secret Diary (secretDiary.txt)\n\n" + secretDiaryText,
-        "\n\n## Griffes & Mémoire (griffes.txt)\n\n" + griffesText,
-        "\n\n## Étienne's Calendar (calendar.txt)\n\n" + calendarText,
+        "\n\n## Griffes & MÃ©moire (griffes.txt)\n\n" + griffesText,
+        "\n\n## Ã‰tienne's Calendar (calendar.txt)\n\n" + calendarText,
         "\n\n## World State Briefing (worldState.txt)\n\n" + worldStateText,
     ].join('');
 
@@ -262,16 +262,38 @@ const App: React.FC = () => {
 
         try {
             // Prepare attachments payload (server mode only)
-            const buildAttachmentsBlock = async (): Promise<string> => {
+                        const buildAttachmentsBlock = async (): Promise<string> => {
                 if (!apiBase || attachedFiles.length === 0) return '';
                 const parts: string[] = [];
                 for (const name of attachedFiles) {
                     try {
-                        const res = await fetch(`${apiBase}/api/files/${encodeURIComponent(name)}`);
-                        if (!res.ok) { parts.push(`Attachment: ${name} (failed to fetch)`); continue; }
-                        const txt = await res.text();
-                        const content = txt.length > 200000 ? (txt.slice(0, 200000) + `\n[... truncated ${txt.length - 200000} chars ...]`) : txt;
-                        parts.push(`<<FILE name="${name}">>\n${content}\n<<END FILE>>`);
+                        // Prefer server-side text extraction when available (e.g., PDFs)
+                        let content = '';
+                        let kind = '';
+                        try {
+                            const rText = await fetch(`${apiBase}/api/files/${encodeURIComponent(name)}/text`);
+                            if (rText.ok) {
+                                const data = await rText.json();
+                                kind = String(data.kind || 'text');
+                                const raw = String(data.text || '');
+                                content = raw.length > 200000 ? (raw.slice(0, 200000) + `\n[... truncated ${raw.length - 200000} chars ...]`) : raw;
+                            }
+                        } catch {}
+                        if (!content) {
+                            // Fallback: try to read as UTF-8 text directly; if it fails, mark as binary
+                            const res = await fetch(`${apiBase}/api/files/${encodeURIComponent(name)}`);
+                            if (!res.ok) { parts.push(`Attachment: ${name} (failed to fetch)`); continue; }
+                            const txt = await res.text();
+                            if (/\u0000/.test(txt)) {
+                                parts.push(`Attachment: ${name} (binary; not inlined). Please reference via workspace filename.`);
+                                continue;
+                            }
+                            const truncated = txt.length > 200000 ? (txt.slice(0, 200000) + `\n[... truncated ${txt.length - 200000} chars ...]`) : txt;
+                            content = truncated;
+                            kind = 'text';
+                        }
+                        const header = kind ? `<<FILE name="${name}" kind="${kind}">>` : `<<FILE name="${name}">>`;
+                        parts.push(`${header}\n${content}\n<<END FILE>>`);
                     } catch (e) {
                         parts.push(`Attachment: ${name} (error reading)`);
                     }
@@ -637,3 +659,4 @@ const App: React.FC = () => {
 };
 
 export default App;
+
