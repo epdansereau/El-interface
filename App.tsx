@@ -53,7 +53,11 @@ const App: React.FC = () => {
     const [attachedFiles, setAttachedFiles] = useState<string[]>([]);
 
     // Function to load from server when available; otherwise fallback to localStorage/bundled
-    const serverUrl = (import.meta as any).env?.VITE_SERVER_URL || '';
+    // Prefer server from env; fallback to localhost server for zero-config
+    let serverUrl = (import.meta as any).env?.VITE_SERVER_URL || '';
+    if (!serverUrl) {
+        serverUrl = 'http://127.0.0.1:5179';
+    }
     const apiBase = serverUrl.replace(/\/$/, '');
     const loadData = async (filename: EditableFile, setter: (text: string) => void) => {
         const storageKey = `elira-mem-${filename}`;
@@ -326,7 +330,7 @@ const App: React.FC = () => {
                 const resp = await fetch(`${apiBase}/api/chat/stream`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ provider, model: activeConv.model, messages: msgs, systemInstruction: fullSystemInstruction })
+                    body: JSON.stringify({ provider, model: activeConv.model, messages: msgs, systemInstruction: fullSystemInstruction, agentic: true, debug: true })
                 });
                 if (!resp.ok || !resp.body) throw new Error(`Chat server error: ${resp.status}`);
                 const reader = resp.body.getReader();
@@ -356,7 +360,7 @@ const App: React.FC = () => {
                             const obj = JSON.parse(dataPayload);
                             if (obj.error) throw new Error(obj.error);
                             if (obj.text) applyUpdate(obj.text);
-                            if (obj.done) { extractAndQueueProposals(eliraResponse); await extractAndRunExecs(eliraResponse); }
+                            if (obj.done) { extractAndQueueProposals(eliraResponse); }
                         } catch {
                             // ignore malformed JSON fragments
                         }
@@ -367,14 +371,14 @@ const App: React.FC = () => {
                     const r2 = await fetch(`${apiBase}/api/chat`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ provider, model: activeConv.model, messages: msgs, systemInstruction: fullSystemInstruction })
+                        body: JSON.stringify({ provider, model: activeConv.model, messages: msgs, systemInstruction: fullSystemInstruction, agentic: true, debug: true })
                     });
                     if (r2.ok) {
                         const d2 = await r2.json();
                         if (d2 && d2.text) {
                             eliraResponse = d2.text;
                             setConversations(prev => prev.map(conv => conv.id === activeConversationId ? { ...conv, messages: conv.messages.map(msg => msg.id === eliraMessageId ? { ...msg, text: eliraResponse } : msg) } : conv));
-                            extractAndQueueProposals(eliraResponse); await extractAndRunExecs(eliraResponse);
+                            extractAndQueueProposals(eliraResponse);
                         }
                     }
                 }
@@ -504,42 +508,7 @@ const App: React.FC = () => {
         }
         if (found.length) setProposals(prev => [...found, ...prev]);
     };
-    const extractAndRunExecs = async (text: string) => {
-        if (!apiBase) return;
-        const fenceRe = /```json\s+elira_exec\n([\s\S]*?)```/g;
-        let m: RegExpExecArray | null;
-        while ((m = fenceRe.exec(text)) !== null) {
-            try {
-                const obj = JSON.parse(m[1]);
-                if (!obj || !obj.cmd) continue;
-                const runMsgId = Date.now() + Math.floor(Math.random()*1000);
-                const prefix = `Running: ${obj.cmd}\n\n`;
-                setConversations(prev => prev.map(conv => conv.id === activeConversationId ? { ...conv, messages: [...conv.messages, { id: runMsgId, text: prefix, sender: 'elira' }] } : conv));
-                const resp = await fetch(`${apiBase}/api/exec/stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cmd: obj.cmd, cwd: obj.cwd, timeoutMs: obj.timeoutMs }) });
-                if (!resp.ok || !resp.body) {
-                    const t = await resp.text();
-                    setConversations(prev => prev.map(conv => conv.id === activeConversationId ? { ...conv, messages: conv.messages.map(msg => msg.id === runMsgId ? { ...msg, text: prefix + `Error: ${t}` } : msg) } : conv));
-                    continue;
-                }
-                const reader = resp.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
-                const append = (add: string) => setConversations(prev => prev.map(conv => conv.id === activeConversationId ? { ...conv, messages: conv.messages.map(msg => msg.id === runMsgId ? { ...msg, text: msg.text + add } : msg) } : conv));
-                while (true) {
-                    const { done, value } = await reader.read(); if (done) break;
-                    buffer += decoder.decode(value, { stream: true });
-                    const events = buffer.split('\n\n'); buffer = events.pop() || '';
-                    for (const evt of events) {
-                        const lines = evt.split('\n');
-                        let dataPayload = '';
-                        for (const ln of lines) { const l = ln.trim(); if (l.startsWith('data:')) dataPayload += l.slice(5).trim(); }
-                        if (!dataPayload) continue;
-                        try { const o = JSON.parse(dataPayload); if (o.out) append(o.out); if (o.err) append(o.err); } catch {}
-                    }
-                }
-            } catch {}
-        }
-    };
+    // Deprecated: fenced exec blocks are no longer executed in the client.
 
     const handleApplyProposal = async (p: EditProposal, commit?: { enabled: boolean; message?: string }) => {
         if (!apiBase) { setEditError('Server not connected; cannot apply.'); return; }
@@ -691,5 +660,6 @@ const App: React.FC = () => {
 };
 
 export default App;
+
 
 
