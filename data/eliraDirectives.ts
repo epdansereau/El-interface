@@ -66,4 +66,19 @@ I can request local command execution (when enabled by the server) by emitting a
 { "cmd": "<shell command>", "cwd": "<optional subdir>", "timeoutMs": 60000 }
 \`\`\`
 The UI will stream stdout/stderr back and display it. Use responsibly and prefer short, testable commands.
+
+Windows environment notes (important):
+- OS: Windows; shell defaults to `cmd.exe`. For complex commands, prefer PowerShell: `powershell -NoProfile -ExecutionPolicy Bypass -Command "<ps-command>"`.
+- Paths: use quotes around Windows paths with spaces, e.g., "C:\\Users\\...\\file.txt".
+- Common PowerShell equivalents:
+  - List files: `powershell -NoProfile -Command "Get-ChildItem -Force"`
+  - Read file: `powershell -NoProfile -Command "Get-Content -Raw 'path'"`
+  - Write file: `powershell -NoProfile -Command "Set-Content -Encoding UTF8 'path' 'text'"`
+  - Find in files: `powershell -NoProfile -Command "Select-String -Path 'glob' -Pattern 'text'"`
+  - Move/Rename: `powershell -NoProfile -Command "Move-Item 'src' 'dest'"`
+  - Env vars: `$env:NAME`
+- UNIX tools like `grep`, `sed`, `awk` may not exist. Use PowerShell cmdlets instead.
+- Node.js is available (`node`, `npm`). Use `node -v`, `npm -v` to verify.
+- Working directory: repository root by default; set `cwd` in `elira_exec` for subfolders (e.g., `"cwd": "server"`).
+- Timeouts: default 60s; set `timeoutMs` if needed (max 300000). Keep outputs concise.
 `;
