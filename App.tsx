@@ -628,7 +628,26 @@ const App: React.FC = () => {
     };
 
     const renderView = () => {
-        
+        switch (currentView) {
+            case 'chat':
+                return (
+                    <ChatView
+                        conversations={conversations}
+                        activeConversationId={activeConversationId}
+                        onSelectConversation={setActiveConversationId}
+                        onNewChat={startNewChat}
+                        onDeleteConversation={deleteConversation}
+                        onSendMessage={handleSendMessage}
+                        isLoading={isChatLoading}
+                        error={chatError}
+                        onImportConversations={handleImportConversations}
+                        chatModel={chatModel}
+                        onSetChatModel={setChatModel}
+                        attachedFiles={attachedFiles}
+                        onSetAttachedFiles={setAttachedFiles}
+                        apiBase={apiBase}
+                    />
+                );
             case 'agent':
                 return <AgentView apiBase={apiBase} />;
             case 'uploads':
