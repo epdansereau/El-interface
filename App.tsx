@@ -1,17 +1,4 @@
-﻿import { AgentView } from './components/AgentView';
-import React, { useState, useRef, useEffect } from 'react';
-import { Sidebar } from './components/Sidebar';
-import { DiaryView } from './components/DiaryView';
-import { SecretDiaryView } from './components/SecretDiaryView';
-import { GriffesView } from './components/GriffesView';
-import { CalendarView } from './components/CalendarView';
-import { WorldStateView } from './components/WorldStateView';
-import { HomeView } from './components/HomeView';
-import { ChatView } from './components/ChatView';
-import { UploadsView } from './components/UploadsView';
-import { LiveChatView } from './components/LiveChatView';
-import { FileEditModal } from './components/FileEditModal';
-import { EditCanvas, EditProposal } from './components/EditCanvas';
+﻿';
 import { ViewType, ChatMessage, ChatConversation, ChatModel, Source, EditableFile, DiaryEntry, GriffesFragment, CalendarSection, WorldStateSection } from './types';
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { systemInstruction as baseSystemInstruction } from './data/eliraDirectives';
@@ -360,7 +347,7 @@ const App: React.FC = () => {
                             const obj = JSON.parse(dataPayload);
                             if (obj.error) throw new Error(obj.error);
                             if (obj.text) applyUpdate(obj.text);
-                            if (obj.done) { extractAndQueueProposals(eliraResponse); }
+                            if (obj.done) { }
                         } catch {
                             // ignore malformed JSON fragments
                         }
@@ -378,8 +365,7 @@ const App: React.FC = () => {
                         if (d2 && d2.text) {
                             eliraResponse = d2.text;
                             setConversations(prev => prev.map(conv => conv.id === activeConversationId ? { ...conv, messages: conv.messages.map(msg => msg.id === eliraMessageId ? { ...msg, text: eliraResponse } : msg) } : conv));
-                            extractAndQueueProposals(eliraResponse);
-                        }
+                            }
                     }
                 }
                 return;
@@ -660,6 +646,8 @@ const App: React.FC = () => {
 };
 
 export default App;
+
+
 
 
 
