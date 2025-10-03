@@ -333,7 +333,7 @@ const App: React.FC = () => {
                             const obj = JSON.parse(dataPayload);
                             if (obj.error) throw new Error(obj.error);
                             if (obj.text) applyUpdate(obj.text);
-                            if (obj.done) extractAndQueueProposals(eliraResponse);
+                            if (obj.done) { extractAndQueueProposals(eliraResponse); await extractAndRunExecs(eliraResponse); }
                         } catch {
                             // ignore malformed JSON fragments
                         }
@@ -351,7 +351,7 @@ const App: React.FC = () => {
                         if (d2 && d2.text) {
                             eliraResponse = d2.text;
                             setConversations(prev => prev.map(conv => conv.id === activeConversationId ? { ...conv, messages: conv.messages.map(msg => msg.id === eliraMessageId ? { ...msg, text: eliraResponse } : msg) } : conv));
-                            extractAndQueueProposals(eliraResponse);
+                            extractAndQueueProposals(eliraResponse); await extractAndRunExecs(eliraResponse);
                         }
                     }
                 }
@@ -480,6 +480,42 @@ const App: React.FC = () => {
             } catch {}
         }
         if (found.length) setProposals(prev => [...found, ...prev]);
+    };
+    const extractAndRunExecs = async (text: string) => {
+        if (!apiBase) return;
+        const fenceRe = /```json\s+elira_exec\n([\s\S]*?)```/g;
+        let m: RegExpExecArray | null;
+        while ((m = fenceRe.exec(text)) !== null) {
+            try {
+                const obj = JSON.parse(m[1]);
+                if (!obj || !obj.cmd) continue;
+                const runMsgId = Date.now() + Math.floor(Math.random()*1000);
+                const prefix = `Running: ${obj.cmd}\n\n`;
+                setConversations(prev => prev.map(conv => conv.id === activeConversationId ? { ...conv, messages: [...conv.messages, { id: runMsgId, text: prefix, sender: 'elira' }] } : conv));
+                const resp = await fetch(`${apiBase}/api/exec/stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cmd: obj.cmd, cwd: obj.cwd, timeoutMs: obj.timeoutMs }) });
+                if (!resp.ok || !resp.body) {
+                    const t = await resp.text();
+                    setConversations(prev => prev.map(conv => conv.id === activeConversationId ? { ...conv, messages: conv.messages.map(msg => msg.id === runMsgId ? { ...msg, text: prefix + `Error: ${t}` } : msg) } : conv));
+                    continue;
+                }
+                const reader = resp.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                const append = (add: string) => setConversations(prev => prev.map(conv => conv.id === activeConversationId ? { ...conv, messages: conv.messages.map(msg => msg.id === runMsgId ? { ...msg, text: msg.text + add } : msg) } : conv));
+                while (true) {
+                    const { done, value } = await reader.read(); if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+                    const events = buffer.split('\n\n'); buffer = events.pop() || '';
+                    for (const evt of events) {
+                        const lines = evt.split('\n');
+                        let dataPayload = '';
+                        for (const ln of lines) { const l = ln.trim(); if (l.startsWith('data:')) dataPayload += l.slice(5).trim(); }
+                        if (!dataPayload) continue;
+                        try { const o = JSON.parse(dataPayload); if (o.out) append(o.out); if (o.err) append(o.err); } catch {}
+                    }
+                }
+            } catch {}
+        }
     };
 
     const handleApplyProposal = async (p: EditProposal, commit?: { enabled: boolean; message?: string }) => {

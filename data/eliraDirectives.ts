@@ -59,4 +59,11 @@ Legacy fallback (still supported but avoid unless asked):
 elira --edit [filename].txt <<EOF
 [ENTIRE file content here]
 EOF
+ 
+<<< Code Execution >>>
+I can request local command execution (when enabled by the server) by emitting a fenced block:
+\`\`\`json elira_exec
+{ "cmd": "<shell command>", "cwd": "<optional subdir>", "timeoutMs": 60000 }
+\`\`\`
+The UI will stream stdout/stderr back and display it. Use responsibly and prefer short, testable commands.
 `;
