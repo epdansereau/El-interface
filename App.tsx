@@ -1,4 +1,5 @@
-﻿import React, { useState, useRef, useEffect } from 'react';
+﻿import { AgentView } from './components/AgentView';
+import React, { useState, useRef, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { DiaryView } from './components/DiaryView';
 import { SecretDiaryView } from './components/SecretDiaryView';
@@ -627,9 +628,9 @@ const App: React.FC = () => {
     };
 
     const renderView = () => {
-        switch (currentView) {
-            case 'chat':
-                return <ChatView conversations={conversations} activeConversationId={activeConversationId} onSelectConversation={setActiveConversationId} onNewChat={startNewChat} onDeleteConversation={deleteConversation} onSendMessage={handleSendMessage} isLoading={isChatLoading} error={chatError} onImportConversations={handleImportConversations} chatModel={chatModel} onSetChatModel={setChatModel} attachedFiles={attachedFiles} onSetAttachedFiles={setAttachedFiles} apiBase={apiBase} />;
+        
+            case 'agent':
+                return <AgentView apiBase={apiBase} />;
             case 'uploads':
                 return <UploadsView apiBase={apiBase} onOpenInCanvas={openWorkspaceInCanvas} />;
             case 'live_chat':
@@ -671,4 +672,5 @@ const App: React.FC = () => {
 };
 
 export default App;
+
 

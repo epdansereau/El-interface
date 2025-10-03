@@ -1,6 +1,6 @@
 import type { ElementType } from 'react';
 
-export type ViewType = 'home' | 'diary' | 'secret_diary' | 'griffes' | 'calendar' | 'world_state' | 'chat' | 'live_chat' | 'uploads';
+export type ViewType = 'home' | 'diary' | 'secret_diary' | 'griffes' | 'calendar' | 'world_state' | 'chat' | 'live_chat' | 'uploads' | 'agent';
 
 // Do not remove 'gemini-2.5-pro', it is the latest model and the user wants it.
 export type ChatModel =

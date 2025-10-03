@@ -111,3 +111,13 @@ export const PaperclipIcon: React.FC = () => (
     <path d="M21.44 11.05 12 20.5a6 6 0 0 1-8.49-8.49L12 3.5a4 4 0 0 1 5.66 5.66L8.5 18.32a2 2 0 1 1-2.83-2.83L15 6.17" />
   </svg>
 );
+
+export const BotIcon: React.FC = () => (
+  <svg {...iconProps} viewBox="0 0 24 24">
+    <rect x="3" y="7" width="18" height="10" rx="2" />
+    <circle cx="8" cy="12" r="1" />
+    <circle cx="16" cy="12" r="1" />
+    <path d="M12 3v4" />
+    <rect x="9" y="2" width="6" height="3" rx="1" />
+  </svg>
+);
