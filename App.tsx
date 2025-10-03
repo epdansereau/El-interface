@@ -485,7 +485,13 @@ const App: React.FC = () => {
     const handleApplyProposal = async (p: EditProposal, commit?: { enabled: boolean; message?: string }) => {
         if (!apiBase) { setEditError('Server not connected; cannot apply.'); return; }
         let resp: Response;
-        if (p.mode === 'patch' && p.diff) {
+        const isWorkspace = p.file.startsWith('workspace:');
+        if (isWorkspace) {
+            const name = p.file.slice('workspace:'.length);
+            resp = await fetch(`${apiBase}/api/files/${encodeURIComponent(name)}`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: p.content || '' })
+            });
+        } else if (p.mode === 'patch' && p.diff) {
             resp = await fetch(`${apiBase}/api/diff/apply`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -503,8 +509,8 @@ const App: React.FC = () => {
             setEditError(`Server refused: ${t}`);
             return;
         }
-        if (p.mode === 'replace') await handleSaveEditor(p.file, p.content || '');
-        else {
+        if (!isWorkspace && p.mode === 'replace') await handleSaveEditor(p.file as any, p.content || '');
+        else if (!isWorkspace) {
             // Reload latest after patch
             await loadData(p.file, (text) => {
                 switch(p.file) {
@@ -523,12 +529,39 @@ const App: React.FC = () => {
         setProposals(prev => prev.filter(x => x.id !== id));
     };
 
+    // Allow other components to request opening a workspace file in the canvas
+    useEffect(() => {
+        const onOpen = (e: any) => {
+            const d = e?.detail;
+            if (!d || d.kind !== 'workspace' || !d.name) return;
+            const id = `${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+            const p: EditProposal = { id, file: `workspace:${d.name}`, mode: 'replace', content: String(d.content || ''), note: 'Opened from uploads' };
+            setProposals(prev => [p, ...prev]);
+        };
+        window.addEventListener('elira-open-canvas', onOpen as any);
+        return () => window.removeEventListener('elira-open-canvas', onOpen as any);
+    }, []);
+
+    const openWorkspaceInCanvas = async (name: string) => {
+        if (!apiBase) { setEditError('Server not connected; cannot open canvas.'); return; }
+        try {
+            const r = await fetch(`${apiBase}/api/files/${encodeURIComponent(name)}`);
+            if (!r.ok) throw new Error(await r.text());
+            const text = await r.text();
+            const id = `${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+            const p: EditProposal = { id, file: `workspace:${name}`, mode: 'replace', content: text, note: 'Opened from uploads' };
+            setProposals(prev => [p, ...prev]);
+        } catch (e: any) {
+            setEditError(e.message || 'Failed to open file');
+        }
+    };
+
     const renderView = () => {
         switch (currentView) {
             case 'chat':
                 return <ChatView conversations={conversations} activeConversationId={activeConversationId} onSelectConversation={setActiveConversationId} onNewChat={startNewChat} onDeleteConversation={deleteConversation} onSendMessage={handleSendMessage} isLoading={isChatLoading} error={chatError} onImportConversations={handleImportConversations} chatModel={chatModel} onSetChatModel={setChatModel} attachedFiles={attachedFiles} onSetAttachedFiles={setAttachedFiles} apiBase={apiBase} />;
             case 'uploads':
-                return <UploadsView apiBase={apiBase} />;
+                return <UploadsView apiBase={apiBase} onOpenInCanvas={openWorkspaceInCanvas} />;
             case 'live_chat':
                 return <LiveChatView getAiInstance={getAiInstance} setCurrentView={setCurrentView} systemInstruction={getFullSystemInstruction()} />;
             case 'diary':

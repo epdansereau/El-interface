@@ -3,9 +3,10 @@ import { UploadedFileInfo } from '../types';
 
 interface UploadsViewProps {
   apiBase: string;
+  onOpenInCanvas?: (name: string) => void;
 }
 
-export const UploadsView: React.FC<UploadsViewProps> = ({ apiBase }) => {
+export const UploadsView: React.FC<UploadsViewProps> = ({ apiBase, onOpenInCanvas }) => {
   const [files, setFiles] = useState<UploadedFileInfo[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -83,12 +84,20 @@ export const UploadsView: React.FC<UploadsViewProps> = ({ apiBase }) => {
           </div>
           <ul className="divide-y divide-gray-800">
             {files.map(f => (
-              <li key={f.name} className="py-2 flex items-center justify-between">
-                <div>
+              <li key={f.name} className="py-2 flex items-center justify-between gap-3">
+                <div className="min-w-0">
                   <div className="text-white">{f.name}</div>
                   <div className="text-xs text-gray-500">{(f.size/1024).toFixed(1)} KB</div>
                 </div>
-                <a className="text-sm text-red-400 hover:text-red-200" href={downloadUrl(f.name)} target="_blank" rel="noreferrer">Open</a>
+                <div className="flex items-center gap-2 shrink-0">
+                  <a className="text-sm text-red-400 hover:text-red-200" href={downloadUrl(f.name)} target="_blank" rel="noreferrer">Open</a>
+                  {onOpenInCanvas && (
+                    <button className="text-sm text-gray-300 hover:text-white border border-gray-700 rounded px-2 py-1"
+                      onClick={() => onOpenInCanvas(f.name)}>
+                      Open in Canvas
+                    </button>
+                  )}
+                </div>
               </li>
             ))}
             {files.length === 0 && (
@@ -100,4 +109,3 @@ export const UploadsView: React.FC<UploadsViewProps> = ({ apiBase }) => {
     </div>
   );
 };
-

@@ -96,6 +96,19 @@ export const ChatView: React.FC<ChatViewProps> = ({
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const attachPanelRef = useRef<HTMLDivElement | null>(null);
     const attachButtonRef = useRef<HTMLButtonElement | null>(null);
+    const openInCanvas = async (name: string) => {
+        try {
+            if (!apiBase) { setAttachError('Server not connected'); return; }
+            const r = await fetch(`${apiBase}/api/files/${encodeURIComponent(name)}`);
+            if (!r.ok) throw new Error(await r.text());
+            const text = await r.text();
+            const event = new CustomEvent('elira-open-canvas', { detail: { kind: 'workspace', name, content: text } });
+            window.dispatchEvent(event);
+            setIsAttachOpen(false);
+        } catch (e: any) {
+            setAttachError(e.message || 'Failed to open in canvas');
+        }
+    };
     const messagesEndRef = useRef<null | HTMLDivElement>(null);
     
     const activeConversation = conversations.find(c => c.id === activeConversationId);
@@ -318,6 +331,10 @@ export const ChatView: React.FC<ChatViewProps> = ({
                                     <span className="truncate">{f.name}</span>
                                     <span className="text-xs text-gray-500">{(f.size/1024).toFixed(1)} KB</span>
                                   </label>
+                                  <div className="mt-1 flex gap-2">
+                                    <button className="text-xs text-gray-300 hover:text-white underline" onClick={() => openInCanvas(f.name)}>Open in Canvas</button>
+                                    <a className="text-xs text-red-400 hover:text-red-200 underline" href={`${apiBase}/api/files/${encodeURIComponent(f.name)}`} target="_blank" rel="noreferrer">Open</a>
+                                  </div>
                                 </li>
                               ))}
                               {serverFiles.length === 0 && (<li className="text-xs text-gray-500">No files uploaded yet.</li>)}

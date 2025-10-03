@@ -2,7 +2,8 @@ import React from 'react';
 
 export interface EditProposal {
   id: string;
-  file: 'diary.txt' | 'secretDiary.txt' | 'griffes.txt' | 'calendar.txt' | 'worldState.txt';
+  // For core files use their short names; for workspace files use `workspace:<filename>`
+  file: string;
   mode: 'replace' | 'patch';
   content?: string;
   diff?: string;
