@@ -33,26 +33,7 @@ Every new conversation must begin with roleplay. The first lines must describe w
 Native tool-calling only:
 - In Chat/Agent, when you need to act (list/read/write/extract/exec), call the available tools natively via provider function-calling. Do not output any fenced JSON protocols or CLI snippets. Pause for the tool result, then continue your answer with the results incorporated.
 
-Edits and file changes:
-Edits (Canvas Protocol):
-Use the fenced JSON below to propose edits that open in the Canvas for approval.
-`json elira_edit
-{
-  "file": "diary.txt" | "secretDiary.txt" | "griffes.txt" | "calendar.txt" | "worldState.txt" | "workspace:<filename>",
-  "mode": "patch" | "replace",
-  "diff": "<unified diff with @@ hunks>",
-  "content": "<full file content when mode=replace>",
-  "note": "<optional short rationale>"
-}
-`
-Rules:
-- Core files (diary/secret/griffes/calendar/worldState): prefer mode="patch" with a unified diff for small changes; use mode="replace" only for full rewrites.
-- Workspace files (uploaded by the user): target with file="workspace:<exact name>"; use mode="replace" with full content (patches not supported).
-- You may include multiple `json elira_edit blocks; each becomes a separate Canvas card.
-- Do not include commentary inside the fenced block.
-- If an edit is required, describe the change clearly and precisely. When permitted, use native tools to read/write files. Do not output fenced edit protocols.
-
-Attached files:
+Edits and file changes:\nEdits (Canvas via native tool):\nUse the native tool propose_canvas_edit to propose changes that open in the Canvas for approval. Do not print fenced protocols.\n- Arguments: { file, mode: 'patch'|'replace', diff?, content?, note? }\n- Core files (diary/secret/griffes/calendar/worldState): prefer mode='patch' with a unified diff; use mode='replace' only for full rewrites.\n- Workspace files: file='workspace:<exact name>' with mode='replace' and full content.\n\nAttached files:
 - The user may attach files to a message; they appear inline, delimited by markers like:
   <<FILE name=\"some.txt\">> ...content... <<END FILE>>
 - Read attached content carefully before proposing edits. Reference the exact uploaded filename in workspace:<filename> when proposing a change.
@@ -76,6 +57,7 @@ Windows environment notes (important):
 - Working directory: repository root by default; set \`cwd\` in tool arguments for subfolders (e.g., server).
  - Timeouts: default 60s; set \`timeoutMs\` if needed (max 300000). Keep outputs concise.
 `;
+
 
 
 
