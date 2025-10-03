@@ -46,7 +46,7 @@ Rules:
 - Workspace files (uploaded by the user):
   - Target them with file=\"workspace:<exact file name>\" as shown in the Uploads list.
   - Use mode=\"replace\" and provide the full revised text in \"content\". Patches are not supported for workspace files.
-- You may include multiple ```json elira_edit blocks in a single response; the UI will queue each as a separate Canvas card.
+ - You may include multiple \`\`\`json elira_edit blocks in a single response; the UI will queue each as a separate Canvas card.
 - Do not include extra commentary inside the fenced block; commentary can go outside the block.
 - Only use the filenames listed above (including the workspace:<name> form for uploaded files).
 
